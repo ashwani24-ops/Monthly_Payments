@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Monthly Payments</title>
+<style>
+:root{
+  --bg:#EDF0F4; --surface:#FFFFFF; --ink:#14213D; --muted:#5B6578; --line:#D6DCE5;
+  --paid:#1E7F5C; --paid-soft:#E2F2EB; --due:#B7790F; --due-soft:#FBF1DC; --late:#B3261E; --late-soft:#FBE4E2;
+  --accent:#14213D; --on-accent:#FFFFFF; --shadow:0 1px 2px rgba(20,33,61,.08);
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1524; --surface:#172034; --ink:#E8ECF4; --muted:#9AA5BA; --line:#2A3550;
+    --paid:#4FC08D; --paid-soft:#173A2E; --due:#E5A93A; --due-soft:#3A2F17; --late:#F07A70; --late-soft:#3D1D1D;
+    --accent:#E8ECF4; --on-accent:#0E1524; --shadow:none; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1524; --surface:#172034; --ink:#E8ECF4; --muted:#9AA5BA; --line:#2A3550;
+  --paid:#4FC08D; --paid-soft:#173A2E; --due:#E5A93A; --due-soft:#3A2F17; --late:#F07A70; --late-soft:#3D1D1D;
+  --accent:#E8ECF4; --on-accent:#0E1524; --shadow:none; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Roboto,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45;-webkit-tap-highlight-color:transparent}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 120px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--due);outline-offset:2px}
+
+/* Month header */
+.month{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0 16px}
+.month h1{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:0;line-height:1.1}
+.month .yr{display:block;font-size:15px;font-weight:500;color:var(--muted);letter-spacing:0}
+.nav{display:flex;gap:6px}
+.icon-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center}
+.icon-btn svg{width:20px;height:20px}
+.icon-btn:disabled{opacity:.35;cursor:default}
+
+/* Progress meter: the one bold element */
+.meter{background:var(--surface);border-radius:18px;padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+.meter-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.count{font-size:44px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.count small{font-size:20px;color:var(--muted);font-weight:600}
+.meter-note{color:var(--muted);font-size:14px;text-align:right}
+.bar{display:flex;gap:4px;margin-top:14px}
+.bar span{flex:1;height:10px;border-radius:3px;background:var(--line)}
+.bar span.on{background:var(--paid)}
+.sums{display:flex;justify-content:space-between;margin-top:12px;font-size:14px;color:var(--muted)}
+.sums b{color:var(--ink);font-weight:700}
+
+.banner{background:var(--due-soft);color:var(--ink);border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:14px}
+
+/* Items */
+.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.item{background:var(--surface);border-radius:14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;padding:14px;border-left:5px solid var(--line);position:relative}
+.item.paid{border-left-color:var(--paid)}
+.item.late{border-left-color:var(--late)}
+.item.soon{border-left-color:var(--due)}
+.check{flex:none;width:34px;height:34px;border-radius:50%;border:2px solid var(--line);background:transparent;display:grid;place-items:center}
+.item.paid .check{background:var(--paid);border-color:var(--paid);color:var(--surface)}
+.check svg{width:18px;height:18px;opacity:0}
+.item.paid .check svg{opacity:1}
+.body{flex:1;min-width:0}
+.name{font-weight:700;font-size:17px;overflow-wrap:anywhere}
+.item.paid .name{color:var(--muted)}
+.meta{font-size:13.5px;color:var(--muted);margin-top:2px}
+.tag{display:inline-block;font-size:12.5px;font-weight:700;border-radius:999px;padding:2px 9px;margin-top:6px}
+.tag.paid{background:var(--paid-soft);color:var(--paid)}
+.tag.late{background:var(--late-soft);color:var(--late)}
+.tag.soon{background:var(--due-soft);color:var(--due)}
+.amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.more{flex:none;width:36px;height:36px;border:0;background:transparent;border-radius:50%;color:var(--muted);display:grid;place-items:center}
+.more svg{width:20px;height:20px}
+
+.empty{text-align:center;padding:40px 16px;color:var(--muted)}
+.empty strong{display:block;color:var(--ink);font-size:18px;margin-bottom:6px}
+
+.fab{position:fixed;right:max(20px,calc(50% - 260px));bottom:calc(20px + env(safe-area-inset-bottom,0px));height:56px;padding:0 22px;border-radius:28px;border:0;background:var(--accent);color:var(--on-accent);font-weight:700;font-size:16px;display:flex;align-items:center;gap:8px;box-shadow:0 6px 18px rgba(20,33,61,.25)}
+.fab svg{width:20px;height:20px}
+
+/* Sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,15,30,.45);display:none;z-index:20}
+.scrim.open{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;background:var(--surface);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));z-index:21;transform:translateY(105%);transition:transform .22s ease}
+.sheet.open{transform:none}
+@media (prefers-reduced-motion:reduce){.sheet{transition:none}}
+.sheet h2{margin:0 0 14px;font-size:20px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
+.field input{width:100%;height:48px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit;padding:0 12px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.actions{display:flex;gap:10px;margin-top:6px}
+.btn{flex:1;height:50px;border-radius:12px;border:1px solid var(--line);background:transparent;font-weight:700}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.good{background:var(--paid);color:#fff;border-color:var(--paid)}
+.btn.danger{color:var(--late);border-color:var(--late)}
+.hint{font-size:13px;color:var(--muted);margin-top:-6px;margin-bottom:12px}
+.menu-list{display:flex;flex-direction:column;gap:8px}
+.menu-list .btn{text-align:left;padding:0 16px}
+
+.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;display:none;z-index:30;gap:14px;align-items:center}
+.toast.show{display:flex}
+.toast button{background:transparent;border:0;color:var(--due);font-weight:700}
+.linkbtn{background:none;border:0;color:var(--ink);text-decoration:underline;font-size:14px;padding:10px;margin-top:4px}
+textarea{width:100%;min-height:120px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:13px/1.4 monospace;padding:10px}
+.sync{font-size:12px;color:var(--muted);text-align:center;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="month">
+    <h1 id="monthTitle">—</h1>
+    <div class="nav">
+      <button class="icon-btn" id="prevBtn" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="icon-btn" id="nextBtn" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+  </header>
+
+  <section class="meter" id="meter"></section>
+  <div class="banner" id="pastBanner" hidden></div>
+  <ul class="list" id="list"></ul>
+  <p class="sync"><span id="sync">Saved on this phone</span><br><button class="linkbtn" id="backupBtn">Back up or restore data</button></p>
+</div>
+
+<button class="fab" id="addBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Add item</button>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+<div class="toast" id="toast"><span id="toastMsg"></span><button id="toastUndo">Undo</button></div>
+
+<script>
+(function(){
+  const LS_KEY = "monthly-payments-v1";
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2,"0");
+  const today = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+  const monthKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+  const currentKey = () => monthKey(new Date());
+  const keyToDate = k => { const [y,m]=k.split("-").map(Number); return new Date(y,m-1,1); };
+  const shiftKey = (k,n) => { const d=keyToDate(k); d.setMonth(d.getMonth()+n); return monthKey(d); };
+  const fmtMoney = v => (v||v===0) && v!=="" ? "₹" + Number(v).toLocaleString("en-IN",{maximumFractionDigits:2}) : "";
+  const fmtDate = s => { if(!s) return ""; const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d).toLocaleDateString("en-IN",{day:"numeric",month:"short"}); };
+  const ordinal = n => { const s=["th","st","nd","rd"], v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); };
+  const uid = () => Math.random().toString(36).slice(2,10);
+
+  // state: { items:[{id,name,amount,dueDay,created}], months:{ "YYYY-MM": { itemId: "YYYY-MM-DD" } } }
+  let state = { items:[], months:{} };
+  let viewKey = currentKey();
+  let dbRef = null, saveTimer = null;
+
+  function loadLocal(){
+    try { const raw = localStorage.getItem(LS_KEY); if(raw){ const s=JSON.parse(raw); if(s && Array.isArray(s.items)) state = {items:s.items, months:s.months||{}}; } } catch(e){}
+  }
+  function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch(e){} }
+  function save(){
+    saveLocal();
+    if(!dbRef) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      try { await dbRef.set({items:state.items, months:state.months, updated:Date.now()}); $("sync").textContent = "Saved to your account"; }
+      catch(e){ $("sync").textContent = "Saved on this phone"; }
+    }, 400);
+  }
+
+  // Items that apply to a month: created on/before that month (so new items don't appear in past history)
+  const itemsFor = k => state.items.filter(it => !it.created || it.created <= k)
+                                   .slice().sort((a,b)=>(a.dueDay||99)-(b.dueDay||99) || a.name.localeCompare(b.name));
+  const paidMap = k => state.months[k] || {};
+
+  function status(it, k){
+    const p = paidMap(k)[it.id];
+    if(p) return {cls:"paid", label:`Paid ${fmtDate(p)}`};
+    if(!it.dueDay) return {cls:"", label:""};
+    const cur = currentKey();
+    if(k < cur) return {cls:"late", label:"Not paid"};
+    if(k > cur) return {cls:"", label:""};
+    const d = new Date().getDate();
+    if(d > it.dueDay) return {cls:"late", label:`Overdue by ${d-it.dueDay} day${d-it.dueDay>1?"s":""}`};
+    if(it.dueDay - d <= 3) return {cls:"soon", label: it.dueDay===d ? "Due today" : `Due in ${it.dueDay-d} day${it.dueDay-d>1?"s":""}`};
+    return {cls:"", label:""};
+  }
+
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  function render(){
+    const d = keyToDate(viewKey);
+    $("monthTitle").innerHTML = `${d.toLocaleDateString("en-IN",{month:"long"})}<span class="yr">${d.getFullYear()}</span>`;
+    $("nextBtn").disabled = viewKey >= currentKey();
+    const items = itemsFor(viewKey), pm = paidMap(viewKey);
+    const paidCount = items.filter(i=>pm[i.id]).length;
+    const total = items.reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const paidAmt = items.filter(i=>pm[i.id]).reduce((s,i)=>s+(Number(i.amount)||0),0);
+    const left = items.length - paidCount;
+
+    $("meter").innerHTML = items.length ? `
+      <div class="meter-top">
+        <div class="count">${paidCount}<small> of ${items.length} paid</small></div>
+        <div class="meter-note">${left===0 ? "All done for the month" : `${left} still to pay`}</div>
+      </div>
+      <div class="bar" aria-hidden="true">${items.map(i=>`<span class="${pm[i.id]?"on":""}"></span>`).join("")}</div>
+      ${total ? `<div class="sums"><span>Paid <b>${fmtMoney(paidAmt)}</b></span><span>Remaining <b>${fmtMoney(total-paidAmt)}</b></span></div>` : ""}
+    ` : `<div class="count">0<small> items yet</small></div>`;
+
+    const banner = $("pastBanner");
+    if(viewKey < currentKey()){ banner.hidden=false; banner.textContent = "You’re viewing a past month. Changes here update that month’s record only."; }
+    else banner.hidden = true;
+
+    const list = $("list");
+    if(!items.length){
+      list.innerHTML = `<li class="empty"><strong>Add your monthly payments</strong>Rent, electricity, credit card, SIP, phone — add each once. The list resets to unpaid on the 1st of every month.</li>`;
+      return;
+    }
+    list.innerHTML = items.map(it => {
+      const st = status(it, viewKey);
+      const meta = [it.dueDay ? `Due on ${ordinal(it.dueDay)}` : "", it.note ? esc(it.note) : ""].filter(Boolean).join(" · ");
+      return `<li class="item ${st.cls}" data-id="${it.id}">
+        <button class="check" data-act="toggle" aria-label="${pm[it.id] ? "Mark unpaid" : "Mark paid"}: ${esc(it.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+        <div class="body" data-act="toggle">
+          <div class="name">${esc(it.name)}</div>
+          ${meta ? `<div class="meta">${meta}</div>` : ""}
+          ${st.label ? `<span class="tag ${st.cls}">${st.label}</span>` : ""}
+        </div>
+        ${it.amount ? `<div class="amt">${fmtMoney(it.amount)}</div>` : ""}
+        <button class="more" data-act="menu" aria-label="Options for ${esc(it.name)}"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg></button>
+      </li>`;
+    }).join("");
+  }
+
+  // Sheet helpers
+  function openSheet(html){ $("sheet").innerHTML = html; $("sheet").classList.add("open"); $("scrim").classList.add("open"); const f=$("sheet").querySelector("input"); if(f) setTimeout(()=>f.focus(),150); }
+  function closeSheet(){ $("sheet").classList.remove("open"); $("scrim").classList.remove("open"); }
+  $("scrim").onclick = closeSheet;
+
+  function defaultPaidDate(){
+    if(viewKey === currentKey()) return today();
+    const d = keyToDate(viewKey); return `${viewKey}-${pad(Math.min(28,d.getDate()))}`;
+  }
+  function monthBounds(){ const d=keyToDate(viewKey); const last=new Date(d.getFullYear(), d.getMonth()+1, 0).getDate(); return [`${viewKey}-01`, `${viewKey}-${pad(last)}`]; }
+
+  function markPaidSheet(it){
+    const existing = paidMap(viewKey)[it.id];
+    const [min,max] = monthBounds();
+    openSheet(`<h2>${existing ? "Change paid date" : "Mark as paid"}</h2>
+      <div class="field"><label for="pDate">${esc(it.name)} paid on</label><input type="date" id="pDate" value="${existing||defaultPaidDate()}" max="${max}"></div>
+      <div class="actions"><button class="btn" id="cancel">Cancel</button><button class="btn good" id="ok">Mark paid</button></div>`);
+    $("cancel").onclick = closeSheet;
+    $("ok").onclick = () => {
+      const v = $("pDate").value || today();
+      state.months[viewKey] = Object.assign({}, paidMap(viewKey), {[it.id]: v});
+      save(); render(); closeSheet();
+    };
+  }
+
+  function unmark(it){
+    const prev = paidMap(viewKey)[it.id];
+    const m = Object.assign({}, paidMap(viewKey)); delete m[it.id]; state.months[viewKey] = m;
+    save(); render();
+    showToast(`${it.name} marked unpaid`, () => { state.months[viewKey] = Object.assign({}, paidMap(viewKey), {[it.id]:prev}); save(); render(); });
+  }
+
+  function itemForm(it){
+    const isNew = !it;
+    openSheet(`<h2>${isNew ? "Add item" : "Edit item"}</h2>
+      <div class="field"><label for="fName">Name</label><input id="fName" placeholder="e.g. Electricity bill" value="${it?esc(it.name):""}" maxlength="60"></div>
+      <div class="row2">
+        <div class="field"><label for="fAmt">Amount (₹)</label><input id="fAmt" type="number" inputmode="decimal" min="0" placeholder="Optional" value="${it&&it.amount?it.amount:""}"></div>
+        <div class="field"><label for="fDue">Due day</label><input id="fDue" type="number" inputmode="numeric" min="1" max="31" placeholder="1–31" value="${it&&it.dueDay?it.dueDay:""}"></div>
+      </div>
+      <div class="field"><label for="fNote">Note</label><input id="fNote" placeholder="Optional, e.g. HDFC autopay" value="${it&&it.note?esc(it.note):""}" maxlength="80"></div>
+      <div class="actions"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="ok">${isNew ? "Add item" : "Save changes"}</button></div>`);
+    $("cancel").onclick = closeSheet;
+    $("ok").onclick = () => {
+      const name = $("fName").value.trim();
+      if(!name){ $("fName").focus(); $("fName").placeholder = "Enter a name to continue"; return; }
+      const amount = $("fAmt").value === "" ? "" : Math.max(0, Number($("fAmt").value));
+      let due = parseInt($("fDue").value,10); due = due>=1 && due<=31 ? due : "";
+      const note = $("fNote").value.trim();
+      if(isNew) state.items.push({id:uid(), name, amount, dueDay:due, note, created:viewKey});
+      else Object.assign(it, {name, amount, dueDay:due, note});
+      save(); render(); closeSheet();
+    };
+  }
+
+  function menuSheet(it){
+    const paid = paidMap(viewKey)[it.id];
+    openSheet(`<h2>${esc(it.name)}</h2>
+      <div class="menu-list">
+        ${paid ? `<button class="btn" id="mDate">Change paid date</button><button class="btn" id="mUnpay">Mark unpaid</button>` : `<button class="btn" id="mDate">Mark paid on a date</button>`}
+        <button class="btn" id="mEdit">Edit item</button>
+        <button class="btn danger" id="mDel">Delete item</button>
+        <button class="btn" id="cancel">Close</button>
+      </div>`);
+    $("cancel").onclick = closeSheet;
+    $("mDate").onclick = () => markPaidSheet(it);
+    if($("mUnpay")) $("mUnpay").onclick = () => { closeSheet(); unmark(it); };
+    $("mEdit").onclick = () => itemForm(it);
+    $("mDel").onclick = () => {
+      openSheet(`<h2>Delete ${esc(it.name)}?</h2><p class="hint" style="margin:0 0 16px">It will be removed from every month, including past payment records.</p>
+        <div class="actions"><button class="btn" id="cancel">Keep it</button><button class="btn danger" id="ok">Delete item</button></div>`);
+      $("cancel").onclick = closeSheet;
+      $("ok").onclick = () => {
+        state.items = state.items.filter(x=>x.id!==it.id);
+        for(const k in state.months){ if(state.months[k][it.id]){ const m=Object.assign({},state.months[k]); delete m[it.id]; state.months[k]=m; } }
+        save(); render(); closeSheet();
+      };
+    };
+  }
+
+  // Quick tap: mark paid today (or open date sheet for past months); tap again to unmark
+  $("list").addEventListener("click", e => {
+    const act = e.target.closest("[data-act]"); if(!act) return;
+    const li = e.target.closest(".item"); const it = state.items.find(x=>x.id===li.dataset.id); if(!it) return;
+    if(act.dataset.act === "menu") return menuSheet(it);
+    if(paidMap(viewKey)[it.id]) return unmark(it);
+    if(viewKey !== currentKey()) return markPaidSheet(it);
+    state.months[viewKey] = Object.assign({}, paidMap(viewKey), {[it.id]: today()});
+    save(); render();
+    showToast(`${it.name} paid today`, () => { const m=Object.assign({},paidMap(viewKey)); delete m[it.id]; state.months[viewKey]=m; save(); render(); });
+  });
+
+  let toastTimer;
+  function showToast(msg, undo){
+    $("toastMsg").textContent = msg; $("toast").classList.add("show");
+    $("toastUndo").onclick = () => { undo(); $("toast").classList.remove("show"); };
+    clearTimeout(toastTimer); toastTimer = setTimeout(()=>$("toast").classList.remove("show"), 4000);
+  }
+
+  $("addBtn").onclick = () => itemForm(null);
+  $("prevBtn").onclick = () => { viewKey = shiftKey(viewKey,-1); render(); };
+  $("nextBtn").onclick = () => { if(viewKey < currentKey()){ viewKey = shiftKey(viewKey,1); render(); } };
+
+  // Roll over automatically if the app stays open across midnight on the 1st
+  let lastKey = currentKey();
+  function checkRollover(){ const k=currentKey(); if(k!==lastKey){ if(viewKey===lastKey) viewKey=k; lastKey=k; } render(); }
+  document.addEventListener("visibilitychange", () => { if(!document.hidden) checkRollover(); });
+  setInterval(checkRollover, 60000);
+
+
+  // Backup / restore
+  $("backupBtn").onclick = () => {
+    openSheet(`<h2>Back up or restore</h2>
+      <p class="hint" style="margin:0 0 14px">Your data lives only on this phone. Save a backup before uninstalling or updating the app.</p>
+      <div class="menu-list"><button class="btn primary" id="bExport">Save backup (share to Drive, WhatsApp, email)</button></div>
+      <div class="field" style="margin-top:18px"><label for="bText">Restore: paste a backup here</label><textarea id="bText" placeholder="Paste backup text"></textarea></div>
+      <div class="actions"><button class="btn" id="cancel">Close</button><button class="btn good" id="bImport">Restore backup</button></div>`);
+    $("cancel").onclick = closeSheet;
+    $("bExport").onclick = () => {
+      const text = JSON.stringify({app:"monthly-payments", version:1, savedAt:today(), ...state});
+      if(window.Android && window.Android.share) window.Android.share(text);
+      else if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=>showToast("Backup copied", ()=>{}));
+    };
+    $("bImport").onclick = () => {
+      try {
+        const d = JSON.parse($("bText").value.trim());
+        if(!d || !Array.isArray(d.items)) throw 0;
+        state = {items:d.items, months:d.months||{}};
+        save(); render(); closeSheet();
+        showToast(`Restored ${d.items.length} items`, ()=>{});
+      } catch(e){ $("bText").value = ""; $("bText").placeholder = "That text isn’t a valid backup. Paste the full backup text and try again."; }
+    };
+  };
+
+  // Android back button: close sheet, then return to this month, then exit
+  window.handleBack = () => {
+    if($("sheet").classList.contains("open")){ closeSheet(); return true; }
+    if(viewKey !== currentKey()){ viewKey = currentKey(); render(); return true; }
+    return false;
+  };
+
+  loadLocal(); render();
+
+})();
+</script>
+</body>
+</html>
