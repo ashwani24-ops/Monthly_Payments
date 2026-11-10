@@ -2,6 +2,8 @@
 
 Checklist of monthly payments that resets to unpaid on the 1st of every month.
 Tap an item to mark it paid today; use ⋮ to pick another date. Past months keep their paid dates (← arrow).
+Yearly items (insurance, school fees) appear only in their due month and are listed under "Other yearly payments".
+Reminders: a daily notification at your chosen time (Settings ⚙) for unpaid items, starting N days before the due date.
 No internet permission — all data stays on the phone.
 
 ## Option A — Build on GitHub (no installs needed)
@@ -21,7 +23,7 @@ Copy the APK to the phone, open it, and allow "Install unknown apps" for your fi
 Data is stored only on the phone. Before uninstalling or installing a newer build,
 use **Back up or restore data** (bottom of the screen) → Save backup → send to Drive/WhatsApp/email.
 After reinstalling, paste that text into the restore box.
-(A new build from a different machine/GitHub run may need uninstall-then-install, which clears data — so back up first.)
+From version 1.1 every build is signed with the same key (app/debug.keystore), so new builds install over the old one and keep your data.
 
 ## Customise
 - App name: `app/src/main/res/values/strings.xml`
